@@ -1,0 +1,429 @@
+---
+title: "WiFi Fingerprinting"
+author: "Michael Simko"
+date: "06/03/2018"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(expss)
+library(rworldmap)
+library(caret)
+```
+
+# Introduction
+
+Determining outdoor location using global positioning satellite signals is virtually ubiquitous. In most instances, cell phones are capable of locating positions within less than 5 meters (~16 feet) https://www.gps.gov/systems/gps/performance/accuracy/#how-accurate. GPS, however, is a line of sight technology and does not work well, if at all, inside buildings. WiFi Fingerprinting is a technology to determine the position of a mobile device based on information collected from a wireless local area network (WLAN) system.
+
+The goal of this analysis is to develop models capable of using signals from wireless access points (WAPs) to locate a position of a user's device indoors. This position will be defined as a combination of building, floor, space ID and relative position.
+
+The dataset consists of signal strength (in dB) from 520 WAPs paired with information such as User ID, Phone ID, known longitude and latitude at each sample location, specific reference information (like building, floor, relative position) and a timestamp. Values of +100 indicate no signal, and signal strengths range from 0 (very strong) to -100 (very weak). In this dataset, values of +100 mean no signal. The full dataset is available at http://archive.ics.uci.edu/ml/datasets/UJIIndoorLoc.
+
+For this analysis, the data will be split by building and further analyzed according to WAPs with the strongest average dB levels (meaning that WAPs with very weak signals at given unique locations will be eliminated from the analysis). The literature states that building design, WAP location and other factors (signal reflection, attenuation) can influence signal strength at given locations, thus affecting the validity of factors that are being used for the model.
+
+The structure of models made here will be based on signal strength from individual WAPs and a unique categorical factor that maps to each individual study location point.
+
+```{r Import Data}
+#import dataset and split by building
+tdBase <- read.csv("~/Desktop/SHUDAP/C4DeepAnalytics/C4T3/C4T3_7thtry/trainingData.csv")
+#Split dataset into 3 individual buildings
+tdBase0 <- filter(tdBase, BUILDINGID==0)
+tdBase1 <- filter(tdBase, BUILDINGID==1)
+tdBase2 <- filter(tdBase, BUILDINGID==2)
+#since a value in the WAP vector of 100 means no signal, reassign NA to all values of 100 in WAP vectors - this leaves only valid signal values
+tdBase0[,1:520][tdBase0[,1:520] == 100] <- NA
+tdBase1[,1:520][tdBase1[,1:520] == 100] <- NA
+tdBase2[,1:520][tdBase2[,1:520] == 100] <- NA
+```
+
+Longitude and Latitude values were given for each measurement point. These values were mapped to show the location points which sketched out the rough shapes of each of the buildings.
+
+# Plot Building Maps
+
+```{r Plot Building Maps}
+#build long/lat maps for each building
+newmap0 <- getMap(resolution = "low")
+plot(newmap0, xlim = c(-7587, -7691), ylim = c(4864898, 4865017), asp=1, main="Map of Datapoints in Building 0")
+points(tdBase0$LONGITUDE,tdBase0$LATITUDE,col="blue",cex=.6)
+
+newmap1 <- getMap(resolution = "low")
+plot(newmap1, xlim = c(-7404, -7578), ylim = c(4864810, 4864960), asp=1,main="Map of Datapoints in Building 1")
+points(tdBase1$LONGITUDE,tdBase1$LATITUDE,col="red",cex=.6)
+
+newmap2 <- getMap(resolution = "low")
+plot(newmap2, xlim = c(-7301, -7415), ylim = c(4864746, 4864862), asp=1, main="Map of Datapoints in Building 2")
+points(tdBase2$LONGITUDE,tdBase2$LATITUDE,col="green",cex=.6)
+```
+
+# Analyze USERID information
+
+```{r Construct USERID Tables}
+#create frequency table of USERIDs by BUILDINGID
+print ("Table I - Frequency of USERID by Building # and Floor #")
+tdBase <- apply_labels(tdBase,BUILDINGID="Building",USERID="User ID#")
+cro(tdBase$BUILDINGID,tdBase$USERID)
+#plot graph of most frequent USERIDs
+userfreq <- table(tdBase$USERID)
+userfreq <- sort(userfreq, decreasing = TRUE)
+userfreqdf <- as.data.frame(userfreq)
+plot (userfreqdf, xlab="UserID", main="Frequencies of USERID #s")
+```
+
+Inspection of the USERID datapoint frequency table by building shows a few interesting patterns. First, most users reported data for more than one building, however, User #1, for instance, only collected datapoints in Building 0 (and a large number of datapoints compared to the rest of the set too). Also noteworthy, User #11 was the only user to collect datapoints across all three buildings, and also collected the largest number of total datapoints. User #3 collected the fewest number of total datapoints and only in Building 2.
+
+# Focus on USERID - Building and Floor
+
+```{r Data Wrangling}
+#break out data for a few of the most prolific USERIDs
+
+print ("Table II - Frequency of User#11 by Building # and Floor #")
+tdUser11 <- filter(tdBase, USERID==11)
+tdUser11 <- apply_labels(tdUser11,BUILDINGID="Building",FLOOR="Floor")
+cro(tdUser11$BUILDINGID,tdUser11$FLOOR)
+
+print ("Table III - Frequency of User#1 by Building # and Floor #")
+tdUser01 <- filter(tdBase, USERID==1)
+tdUser01 <- apply_labels(tdUser01,BUILDINGID="Building",FLOOR="Floor")
+cro(tdUser01$BUILDINGID,tdUser01$FLOOR)
+
+print ("Table IV - Frequency of User#14 by Building # and Floor #")
+tdUser14 <- filter(tdBase, USERID==14)
+tdUser14 <- apply_labels(tdUser14,BUILDINGID="Building",FLOOR="Floor")
+cro(tdUser14$BUILDINGID,tdUser14$FLOOR)
+
+print ("Table V - Frequency of User#7 by Building # and Floor #")
+tdUser07 <- filter(tdBase, USERID==7)
+tdUser07 <- apply_labels(tdUser07,BUILDINGID="Building",FLOOR="Floor")
+cro(tdUser07$BUILDINGID,tdUser07$FLOOR)
+
+print ("Table VI - Frequency of User#2 by Building # and Floor #")
+tdUser02 <- filter(tdBase, USERID==2)
+tdUser02 <- apply_labels(tdUser02,BUILDINGID="Building",FLOOR="Floor")
+cro(tdUser02$BUILDINGID,tdUser02$FLOOR)
+```
+
+```{r Build Categorical Position Vector}
+#build an absolute position vector
+#duplicate building, space, floor and relative position vectors then unite into a new vector consisting of relative position, space, building and floor and create new dataframe "tdx"
+
+#Building 0
+tdBase0$RELATIVEPOSITION <- as.character(tdBase0$RELATIVEPOSITION)
+tdBase0$SPACEID <- as.character(tdBase0$SPACEID)
+tdBase0$BUILDINGID <- as.character(tdBase0$BUILDINGID)
+tdBase0$FLOOR <- as.character(tdBase0$FLOOR)
+td0 <- unite(tdBase0, "MSID", RELATIVEPOSITION, SPACEID, BUILDINGID, FLOOR, sep = "", remove=FALSE)
+
+#Building 1
+tdBase1$RELATIVEPOSITION <- as.character(tdBase1$RELATIVEPOSITION)
+tdBase1$SPACEID <- as.character(tdBase1$SPACEID)
+tdBase1$BUILDINGID <- as.character(tdBase1$BUILDINGID)
+tdBase1$FLOOR <- as.character(tdBase1$FLOOR)
+td1 <- unite(tdBase1, "MSID", RELATIVEPOSITION, SPACEID, BUILDINGID, FLOOR, sep = "", remove=FALSE)
+
+#Building 2
+tdBase2$RELATIVEPOSITION <- as.character(tdBase2$RELATIVEPOSITION)
+tdBase2$SPACEID <- as.character(tdBase2$SPACEID)
+tdBase2$BUILDINGID <- as.character(tdBase2$BUILDINGID)
+tdBase2$FLOOR <- as.character(tdBase2$FLOOR)
+td2 <- unite(tdBase2, "MSID", RELATIVEPOSITION, SPACEID, BUILDINGID, FLOOR, sep = "", remove=FALSE)
+```
+# Feature Engineering
+
+To refine the analysis, new dataframes are created with only the strongest WAP signals. This includes removing all location information other than the unique position vectors and only keeping those WAPs with average signal strength > -80 dB.
+
+```{r Prepare Dataframe for Further Analysis}
+#Building 0
+#isolate WAP vectors and remove all columns with only NA values
+td0WAPonly <- tdBase0[,1:520]
+emptycols0 <- sapply(td0WAPonly, function (k) all(is.na(k)))
+td0WAPonly <- td0WAPonly[!emptycols0]
+#isolate master position vector
+td0Pos <- as.character(td0[,523])
+#remove weakest signals from WAP vectors (<-80 dB)
+lowcolmeans0 <- colMeans (td0WAPonly,na.rm=TRUE) < -80
+td0WAPonly <- td0WAPonly[!lowcolmeans0]
+#combine categorical tdPos ID vector and stronger WAP signals into new dataframe for modelling
+td0Model <- cbind (td0Pos,td0WAPonly,deparse.level = 1)
+
+#Building 1
+#isolate WAP vectors and remove all columns with only NA values
+td1WAPonly <- tdBase1[,1:520]
+emptycols1 <- sapply(td1WAPonly, function (k) all(is.na(k)))
+td1WAPonly <- td1WAPonly[!emptycols1]
+#isolate master position vector
+td1Pos <- as.character(td1[,523])
+#remove weakest signals from WAP vectors (<-80 dB)
+lowcolmeans1 <- colMeans (td1WAPonly,na.rm=TRUE) < -80
+td1WAPonly <- td1WAPonly[!lowcolmeans1]
+#combine categorical tdPos ID vector and stronger WAP signals into new dataframe for modelling
+td1Model <- cbind (td1Pos,td1WAPonly,deparse.level = 1)
+
+#Building 2
+#isolate WAP vectors and remove all columns with only NA values
+td2WAPonly <- tdBase2[,1:520]
+emptycols2 <- sapply(td2WAPonly, function (k) all(is.na(k)))
+td2WAPonly <- td2WAPonly[!emptycols2]
+#isolate master position vector
+td2Pos <- as.character(td2[,523])
+#remove weakest signals from WAP vectors (<-80 dB)
+lowcolmeans2 <- colMeans (td2WAPonly,na.rm=TRUE) < -80
+td2WAPonly <- td2WAPonly[!lowcolmeans2]
+#combine categorical tdPos ID vector and stronger WAP signals into new dataframe for modelling
+td2Model <- cbind (td2Pos,td2WAPonly,deparse.level = 1)
+```
+# Graphical Analysis of WAP signals
+
+Boxplots are used to illustrate the number of WAPs measured in each building with average signals greater than -80dB.
+
+```{r Boxplots}
+#create boxplots for strongest WAP signals in each building
+b0cols <- ncol(td0Model)
+b1cols <- ncol(td1Model)
+b2cols <- ncol(td2Model)
+boxplot(td0Model[2:b0cols], main="Boxplot of Strongest WAPs - Building 0")
+boxplot(td1Model[2:b1cols], main="Boxplot of Strongest WAPs - Building 1")
+boxplot(td2Model[2:b2cols], main="Boxplot of Strongest WAPs - Building 2")
+
+b0colsWAP <- b0cols-1
+b1colsWAP <- b1cols-1
+b2colsWAP <- b2cols-1
+cat ("There are ", b0colsWAP, " WAPs with average signals > -80 dB in Building 0. ")
+cat ("There are ", b1colsWAP, " WAPs with average signals > -80 dB in Building 1. ")
+cat ("There are ", b2colsWAP, " WAPs with average signals > -80 dB in Building 2. ")
+```
+
+Inspection of these boxplots shows that in Building 0, there are no WAPs with individual signal strength levels greater than about -30. In one instance for Building 1 and in multiple instances in Building 2, groupings of individual WAP signals exceed -20 and some reach as high as 0 in some cases. This seems to suggest that some signal levels in Building 2 are unusually high, or most of the signal levels in the other buildings, for some reason, are lower than can be expected.
+
+# Further reduce datasets
+
+In order to further simplify the modelling process, new threshold values for minimum WAP signals in each building are selected. The goal is select a signal threshold to reduce the number of strongest points to between 20 and 50. Building 2 needs no further processing, only Buildings 0 and 1 need to undergo more pruning.
+
+```{r Further Isolate Only Strongest Signals}
+#Building 0
+td0WAPonly <- tdBase0[,1:520]
+emptycols0 <- sapply(td0WAPonly, function (k) all(is.na(k)))
+td0WAPonly <- td0WAPonly[!emptycols0]
+#isolate master position vector
+td0Pos <- as.character(td0[,523])
+#remove weakest signals from WAP vectors (< -74 dB)
+lowcolmeans0 <- colMeans (td0WAPonly,na.rm=TRUE) < -74
+td0WAPonly <- td0WAPonly[!lowcolmeans0]
+#combine categorical tdPos ID vector and stronger WAP signals into new dataframe for modelling
+td0Model <- cbind (td0Pos,td0WAPonly,deparse.level = 1)
+
+#Building 1
+td1WAPonly <- tdBase1[,1:520]
+emptycols1 <- sapply(td1WAPonly, function (k) all(is.na(k)))
+td1WAPonly <- td1WAPonly[!emptycols1]
+#isolate master position vector
+td1Pos <- as.character(td1[,523])
+#remove weakest signals from WAP vectors (<-76 dB)
+lowcolmeans1 <- colMeans (td1WAPonly,na.rm=TRUE) < -76
+td1WAPonly <- td1WAPonly[!lowcolmeans1]
+#combine categorical tdPos ID vector and stronger WAP signals into new dataframe for modelling
+td1Model <- cbind (td1Pos,td1WAPonly,deparse.level = 1)
+
+b0cols <- ncol(td0Model)
+b1cols <- ncol(td1Model)
+boxplot(td0Model[2:b0cols], main="Boxplot of Strongest WAPs - Building 0")
+boxplot(td1Model[2:b1cols], main="Boxplot of Strongest WAPs - Building 1")
+
+b0colsWAP <- b0cols-1
+b1colsWAP <- b1cols-1
+
+cat ("There are now ", b0colsWAP, " WAPs with average signals > -80 dB in Building 0. ")
+cat ("There are now ", b1colsWAP, " WAPs with average signals > -80 dB in Building 1. ")
+```
+
+# Prepare and Run Models for Building 0
+
+Three models were created and run for each of the buildings. The models found to be the most useful are k Nearest Neighbor, CART and random forest. The results for each of these models are shown below.
+
+```{r Split df and run models B0}
+set.seed(824)
+
+# define an 75%/25% train/test split of the dataset
+inTraining <- createDataPartition(td0Model$td0Pos, p = .75, list = FALSE)
+training <- td0Model[inTraining,]
+testing <- td0Model[-inTraining,]
+#replace NAs with values of -100
+training[is.na(training)] <- -100
+testing[is.na(testing)] <- -100
+#create a csv file of model dataset Building 0
+write_csv(training,"training0.csv")
+
+#10 fold cross validation
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10)
+```
+
+k Nearest Neighbor for Building 0
+
+```{r k Nearest Neighbor B0}
+#knn classification model
+knn0Fit <- train(td0Pos~., data = training, method = "knn", trControl=fitControl)
+#knn0Fit
+#make predictions
+testPredknn0 <- predict(knn0Fit, testing)
+#performace measurment
+postResample(testPredknn0, testing$td0Pos)
+#confusionMatrix(testPredknn0,testing$td0Pos)
+```
+
+CART for Building 0
+
+```{r Bagged CART B0}
+#prototype classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+bag0Fit <- train(td0Pos~., data = training, method = "treebag",trControl=fitControl)
+#bag0Fit
+#make predictions
+testPredbag0 <- predict(bag0Fit, testing)
+#performace measurment
+postResample(testPredbag0, testing$td0Pos)
+#confusionMatrix(testPredbag0,testing$td0Pos)
+```
+
+Random Forest for Building 0
+
+```{r Random Forest B0}
+#Random Forest classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 1)
+rf0Fit <- train(td0Pos~., data = training, method = "rf", trControl=fitControl, tuneLength=3)
+#rf0Fit
+#make predictions
+testPredrf0 <- predict(rf0Fit, testing)
+#performace measurment
+postResample(testPredrf0, testing$td0Pos)
+#confusionMatrix(testPredrf0,testing$td0Pos)
+```
+
+# Prepare and Run Models for Building 1
+
+```{r Split df and run classification models B1}
+set.seed(428)
+
+# define an 75%/25% train/test split of the dataset
+inTraining <- NULL
+training <- NULL
+testing <- NULL
+inTraining <- createDataPartition(td1Model$td1Pos, p = .75, list = FALSE)
+training <- td1Model[inTraining,]
+testing <- td1Model[-inTraining,]
+#replace NAs with values of -100
+training[is.na(training)] <- -100
+testing[is.na(testing)] <- -100
+#create a csv file of model dataset Building 1
+write_csv(training,"training1.csv")
+
+#10 fold cross validation
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10)
+```
+
+k Nearest Neighbor for Building 1
+
+```{r k Nearest Neighbor B1}
+#knn classification model
+knn1Fit <- train(td1Pos~., data = training, method = "knn", trControl=fitControl)
+#knn1Fit
+#make predictions
+testPredknn1 <- predict(knn1Fit, testing)
+#performace measurment
+postResample(testPredknn1, testing$td1Pos)
+#confusionMatrix(testPredknn1,testing$td1Pos)
+```
+
+CART for Building 1
+
+```{r Bagged CART B1}
+#prototype classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+bag1Fit <- train(td1Pos~., data = training, method = "treebag",trControl=fitControl)
+#bag1Fit
+#make predictions
+testPredbag1 <- predict(bag1Fit, testing)
+#performace measurment
+postResample(testPredbag1, testing$td1Pos)
+#confusionMatrix(testPredbag1,testing$td1Pos)
+```
+
+Random Forest for Building 1
+
+```{r  Random Forest B1}
+#Random Forest classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 1)
+rf1Fit <- train(td1Pos~., data = training, method = "rf", trControl=fitControl, tuneLength=3)
+#rf1Fit
+#make predictions
+testPredrf1 <- predict(rf1Fit, testing)
+#performace measurment
+postResample(testPredrf1, testing$td1Pos)
+#confusionMatrix(testPredrf1,testing$td1Pos)
+```
+
+# Prepare and Run Models for Building 2
+
+```{r Split df and run classification models B2}
+set.seed(248)
+
+# define an 75%/25% train/test split of the dataset
+inTraining <- NULL
+training <- NULL
+testing <- NULL
+inTraining <- createDataPartition(td2Model$td2Pos, p = .75, list = FALSE)
+training <- td2Model[inTraining,]
+testing <- td2Model[-inTraining,]
+#replace NAs with values of -100
+training[is.na(training)] <- -100
+testing[is.na(testing)] <- -100
+#create a csv file of model dataset Building 2
+write_csv(training,"training2.csv")
+
+#10 fold cross validation
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 10)
+```
+
+k Nearest Neighbor for Building 2
+
+```{r k Nearest Neighbor B2}
+#knn classification model
+knn2Fit <- train(td2Pos~., data = training, method = "knn", trControl=fitControl)
+#knn2Fit
+#make predictions
+testPredknn2 <- predict(knn2Fit, testing)
+#performace measurment
+postResample(testPredknn2, testing$td2Pos)
+#confusionMatrix(testPredknn2,testing$td2Pos)
+```
+
+CART for Building 2
+
+```{r Bagged CART B2}
+#prototype classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+bag2Fit <- train(td2Pos~., data = training, method = "treebag",trControl=fitControl)
+#bag2Fit
+#make predictions
+testPredbag2 <- predict(bag2Fit, testing)
+#performace measurment
+postResample(testPredbag2, testing$td2Pos)
+#confusionMatrix(testPredbag2,testing$td2Pos)
+```
+
+Random Forest for Building 2
+
+```{r  Random Forest B2}
+#Random Forest classification model
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 1)
+rf2Fit <- train(td2Pos~., data = training, method = "rf", trControl=fitControl, tuneLength=3)
+#rf2Fit
+#make predictions
+testPredrf2 <- predict(rf2Fit, testing)
+#performace measurment
+postResample(testPredrf2, testing$td2Pos)
+#confusionMatrix(testPredrf2,testing$td2Pos)
+```
+
+For each of the three buildings, the Random Forest models generated the best accuracy and kappa values. CART did slightly better than knn in every case, but neither were as good as Random Forest. Building 1 had the lowest modeled agreement values, while Building 2 showed the strongest agreement.
