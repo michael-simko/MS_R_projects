@@ -3,6 +3,6 @@ This repo is my portfolio of data science work using Python and R. It includes J
 
 The ASI files show analysis of arctic sea ice values and work done with R.
 
-The sonar files explore using R and the caret package to build some models with the sonar dataset
+The sonar files explore using R and the caret package to build models with the sonar dataset
 
 The wifi files are also R and apply feature engineering and modeling to develop a wifi locationing system.
