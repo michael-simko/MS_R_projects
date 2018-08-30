@@ -7,5 +7,5 @@ The sonar files explore using R and the caret package to build models with the s
 
 The wifi files are also R and apply feature engineering and modeling to develop a wifi locationing system.
 
-Work on a database of credit default rates to perform EDA and modeling was also completed in Jupyter Notebooks using Python.
+Work on a database of credit default rates (Credit One files) to perform EDA and modeling was also completed in Jupyter Notebooks using Python.
 
