@@ -1,0 +1,343 @@
+---
+title: "submeters"
+author: "Mike Simko"
+date: "9/17/2018"
+output:
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+---
+
+```{r global options, include=FALSE, dpi=72}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+# Introduction
+
+This dataset includes of over 2 million electrical measurements collected between December 2006 through November 2010; almost 47 months of data. It consists of date and time as well as a number of electrical readings including voltage, minute averaged power values and three individual sub-meter readings. Sub-meter 1 is located in a kitchen containing a microwave, dishwasher and oven. Sub-meter 2 is located in a laundry room containing a washer and drier, refrigerator and light. Finally sub-meter 3 tracks the water heater and air conditioning unit. The dataset, and additional details, are available here: https://archive.ics.uci.edu/ml/datasets/individual+household+electric+power+consumption 
+
+```{r import dataset, include=FALSE}
+#import full dataset
+hpcf <- read.csv("~/Desktop/PROJECTS/_submeters/hpc.txt", sep=";",stringsAsFactors = FALSE)
+#str(hpcf)
+head(hpcf,10)
+```
+```{r wrangle data, include=FALSE}
+#keep only complete cases and convert columns to numbers
+hpcf[complete.cases(hpcf), ]
+hpcf[, 7:13] <- sapply(hpcf[, 7:13], as.numeric)
+#sample every 10th observation
+hpc = hpcf[seq(1, nrow(hpcf), 10), ]
+#delete sc "seconds" column
+hpc$sc <- NULL
+#str(hpc)
+summary(hpc)
+#head(hpc,10)
+```
+# Initial observations
+
+The sub-meters (SM) appear to be on different scales. SM1 and 2 range between zero and 87 and 79 respectively. SM3, however, only tops out at 31. Interestingly, the mean for SM1 and 2 are closer to one another around 1.1 to 1.3, while the mean of SM3 is almost 6.5. Voltage is fairly well behaved and fluctuates around 240V, as would be expected.
+
+```{r sample data}
+#create sub-datasets by month and year
+hpc0107 <- filter(hpc,yr==2007, mnth==1)
+hpc0207 <- filter(hpc,yr==2007, mnth==2)
+hpc0307 <- filter(hpc,yr==2007, mnth==3)
+hpc0407 <- filter(hpc,yr==2007, mnth==4)
+hpc0507 <- filter(hpc,yr==2007, mnth==5)
+hpc0607 <- filter(hpc,yr==2007, mnth==6)
+hpc0707 <- filter(hpc,yr==2007, mnth==7)
+hpc0807 <- filter(hpc,yr==2007, mnth==8)
+hpc0907 <- filter(hpc,yr==2007, mnth==9)
+hpc1007 <- filter(hpc,yr==2007, mnth==10)
+hpc1107 <- filter(hpc,yr==2007, mnth==11)
+hpc1207 <- filter(hpc,yr==2007, mnth==12)
+#str(hpc0107)
+#head(hpc0107)
+```
+
+```{r visualize dataset - January 2007}
+ggplot(hpc0107, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for January 2007")
+
+ggplot(hpc0107, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for January 2007")
+
+ggplot(hpc0107, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for January 2007")
+```
+
+```{r visualize dataset - February 2007}
+ggplot(hpc0207, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for February 2007")
+
+ggplot(hpc0207, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for February 2007")
+
+ggplot(hpc0207, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for February 2007")
+```
+
+```{r visualize dataset - March 2007}
+ggplot(hpc0307, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for March 2007")
+
+ggplot(hpc0307, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for March 2007")
+
+ggplot(hpc0307, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for March 2007")
+```
+
+```{r visualize dataset - April 2007}
+ggplot(hpc0407, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for April 2007")
+
+ggplot(hpc0407, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for April 2007")
+
+ggplot(hpc0407, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for April 2007")
+```
+
+```{r visualize dataset - May 2007}
+ggplot(hpc0507, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for May 2007")
+
+ggplot(hpc0507, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for May 2007")
+
+ggplot(hpc0507, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for May 2007")
+```
+
+```{r visualize dataset - June 2007}
+ggplot(hpc0607, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for June 2007")
+
+ggplot(hpc0607, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for June 2007")
+
+ggplot(hpc0607, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for June 2007")
+```
+
+```{r visualize dataset - July 2007}
+ggplot(hpc0707, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for July 2007")
+
+ggplot(hpc0707, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for July 2007")
+
+ggplot(hpc0707, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for July 2007")
+```
+
+```{r visualize dataset - August 2007}
+ggplot(hpc0807, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for August 2007")
+
+ggplot(hpc0807, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for August 2007")
+
+ggplot(hpc0807, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for August 2007")
+```
+
+```{r visualize dataset - September 2007}
+ggplot(hpc0907, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for September 2007")
+
+ggplot(hpc0907, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for September 2007")
+
+ggplot(hpc0907, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for September 2007")
+```
+
+```{r visualize dataset - October 2007}
+ggplot(hpc1007, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for October 2007")
+
+ggplot(hpc1007, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for October 2007")
+
+ggplot(hpc1007, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for October 2007")
+```
+
+```{r visualize dataset - November 2007}
+ggplot(hpc1107, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for November 2007")
+
+ggplot(hpc1107, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for November 2007")
+
+ggplot(hpc1107, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for November 2007")
+```
+
+```{r visualize dataset - December 2007}
+ggplot(hpc1207, aes(day,hr)) +
+  geom_tile(aes(fill = SM1), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "red") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM1 by days for December 2007")
+
+ggplot(hpc1207, aes(day,hr)) +
+  geom_tile(aes(fill = SM2), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "green") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM2 by days for December 2007")
+
+ggplot(hpc1207, aes(day,hr)) +
+  geom_tile(aes(fill = SM3), color = "white") +
+  scale_fill_gradient(low = "lightgoldenrod", high = "blue") +
+  ylab("hour") +
+  xlab("day") +
+  ggtitle("Heatmap of SM3 by days for December 2007")
+```
+
+# Heatmap Observations
+
+The heatmaps are constructuted to show zero/very low values in a light goldenrod color and more activity in red, green and blue, for SM1, 2 and 3 respectively. A cursory scan show significant use at SM3 over most hours of the day, periodically every day, while SM1 and 2 show much more activity over certain days, times of day and even seasonality. SM3 too shows some seasonality with heavier use in January and February and lighter use in June, July and August.
+
+#session information
+
+```{r session info}
+sessionInfo()
+```
