@@ -1,0 +1,111 @@
+---
+title: "Grain Price Trends"
+author: "Mike Simko"
+date: "20-September-2018"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{grains}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r global options, include=FALSE, dpi=72}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(lubridate)
+library(forecast)
+library(TTR)
+```
+
+```{r setup, include = FALSE, echo=FALSE}
+grns <- read.csv("~/Desktop/PROJECTS/_grainprices/grainprices.csv")
+```
+
+# Introduction
+
+This dataset of monthly grain prices from the years 1908 through 1992. The grains include barley, corn, oats and wheat. The dataset spans 84 years.
+
+# Initial visualizations
+
+```{r split data into 2 sub-sets}
+#split dataset into 1908-1905 and 1951-1992
+grns1=filter(grns, year<1950)
+grns2=filter(grns, year>1950)
+```
+
+```{r create plots}
+boxplot(grns$barley~grns$year,  main="Boxplot of Barley Prices \nGrouped by Year", xlab="Year")
+boxplot(grns$corn~grns$year,  main="Boxplot of Corn Prices \nGrouped by Year", xlab="Year")
+boxplot(grns$oats~grns$year,  main="Boxplot of Oats Prices \nGrouped by Year", xlab="Year")
+boxplot(grns$wheat~grns$year,  main="Boxplot of Wheat Prices \nGrouped by Year", xlab="Year")
+```
+
+# Data observations
+
+From the boxplots, it's clear that, roughly speaking, all four grain prices track the same. There are shocks and price volatility around 1918, the mid 1930s, late 1940s and then again in the 1970s, which also sees a step change and increased volatility and fluctuations. Barley, corn and wheat prices track very closely. Oats shows much smoother trending (aside from the ocassional upsets) through the 1970s when increased volatility is apparent.
+
+```{r visualize dataset - 1908-1950}
+ggplot(grns1, aes(year,month)) +
+  geom_tile(aes(fill = barley), color = "white") +
+  scale_fill_gradient(low = "pink", high = "red") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Barley \nPrice over Time")
+
+ggplot(grns1, aes(year,month)) +
+  geom_tile(aes(fill = corn), color = "white") +
+  scale_fill_gradient(low = "lightyellow", high = "orange") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Corn \nPrice over Time")
+
+ggplot(grns1, aes(year,month)) +
+  geom_tile(aes(fill = oats), color = "white") +
+  scale_fill_gradient(low = "lightyellow", high = "green") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Oats \nPrice over Time")
+
+ggplot(grns1, aes(year,month)) +
+  geom_tile(aes(fill = wheat), color = "white") +
+  scale_fill_gradient(low = "pink", high = "blue") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Wheat \nPrice over Time")
+```
+
+```{r visualize dataset - 1951-1992}
+ggplot(grns2, aes(year,month)) +
+  geom_tile(aes(fill = barley), color = "white") +
+  scale_fill_gradient(low = "pink", high = "red") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Barley \nPrice over Time")
+
+ggplot(grns2, aes(year,month)) +
+  geom_tile(aes(fill = corn), color = "white") +
+  scale_fill_gradient(low = "lightyellow", high = "orange") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Corn \nPrice over Time")
+
+ggplot(grns2, aes(year,month)) +
+  geom_tile(aes(fill = oats), color = "white") +
+  scale_fill_gradient(low = "lightyellow", high = "green") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Oats \nPrice over Time")
+
+ggplot(grns2, aes(year,month)) +
+  geom_tile(aes(fill = wheat), color = "white") +
+  scale_fill_gradient(low = "pink", high = "blue") +
+  ylab("month") +
+  xlab("year") +
+  ggtitle("Heatmap of Wheat \nPrice over Time")
+```
+
+# Further observations
+
+Heat mapping the datasets split into two segments (pre and post 1950) results in a different way of visualizing price trends over time. Each year is sequentially presented as a veritcal bar segmented by months, light colors represent lower pricing while darker colors show higher prices. 
+Observations corroborate the data illustrated in the boxplot, just present it a bit differently. The price shocks of the late teens and again in the 1940s can be seen. There are also dips in the prices in the early 1930s and again just before the 1940s. There was a long period of stability from the 1950s through the mid 1960s, then actually a drop in pricing until the mid 1970s where there were dramatic price spikes and then up and down volatility through the end of the dataset.
+
