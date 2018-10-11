@@ -42,7 +42,7 @@ boxplot(grns$wheat~grns$year,  main="Boxplot of Wheat Prices \nGrouped by Year",
 
 # Data observations
 
-From the boxplots, it's clear that, roughly speaking, all four grain prices track the same. There are shocks and price volatility around 1918, the mid 1930s, late 1940s and then again in the 1970s, which also sees a step change and increased volatility and fluctuations. Barley, corn and wheat prices track very closely. Oats shows much smoother trending (aside from the ocassional upsets) through the 1970s when increased volatility is apparent.
+From the boxplots, it's clear that, roughly speaking, all four grain prices track the same. There are shocks and price volatility around 1918, the mid 1930s, late 1940s and then again in the 1970s, which also sees a step change and increased volatility and fluctuations. Barley, corn and wheat prices track very closely. Oats shows much smoother trending (aside from the occassional upsets) through the 1970s when increased volatility is apparent.
 
 ```{r visualize dataset - 1908-1950}
 ggplot(grns1, aes(year,month)) +
