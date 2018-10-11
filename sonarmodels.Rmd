@@ -13,7 +13,7 @@ knitr::opts_chunk$set(dev="png")
 ```
 ##Introduction
 
-An exercise to evaluate various classificartion models in the CARET package using the sonar dataset.
+An exercise to evaluate various classification models in the CARET package using the sonar dataset.
 
 The sonar dataset (used by Gorman and Sejnowski) has 208 rows and 61 columns of numeric values between 0 an 1 with a final nominal column called "Class" which is recorded as either "R" for rock or "M" for mine/metal. •	http://www.ics.uci.edu/~mlearn/MLRepository.html 
 
