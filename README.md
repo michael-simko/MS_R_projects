@@ -10,3 +10,5 @@ Grains is a time series with boxplots and heatmaps to show price volatility and 
 The wifi files are also apply feature engineering and modeling to develop a wifi locationing system.
 
 Submeters is an R-Markdown file with code analyzing a large dataset of household electrical observations. After feature engineering and data munging, the code creates visualizations of sub-meter values day to day over the period of one year.
+
+breastcancerclassification is a project that classifies a diagnosis of benign or malignant based on a number of mass characteristics.
