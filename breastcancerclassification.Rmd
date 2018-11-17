@@ -1,0 +1,421 @@
+---
+title: "Breast Cancer Classification Exercise"
+author: "Mike Simko"
+date: "16-Nov-2018"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                     echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+
+## Import libraries and dataset
+
+```{r import libraries and dataset}
+library(tidyverse)
+library(caret)
+library(ggplot2)
+mmc <- read.csv("~/Desktop/data science/_PROJECTS/_breastcancer/mmc.csv")
+head(mmc, n=10)
+#summary(mmc)
+#str(mmc)
+```
+
+## Introduction
+
+This dataset was taken from https://data.world/julio/mammographic-masses and cleaned of all missing data-points. The original dataset included 962 observations, and the "complete" dataset (after removing all the NAs, for the purposes of modeling), now includes 830 rows. The columns include a "BI-RADS assessment score" on a scale of 0 to 5. However, 9 observations included the value "6" - these observations were kept in the set for analysis. Another column shows the patient's age in continuous integer format. The next three columns describe shape, margin and density and the final column shows malignancy (0 for benign or 1 for malignant). The goal of the classification is to use the information in the first five columns to predict if a mass is malignant or benign.
+
+## Exploratory data analysis
+
+```{r initial visualizations - histograms}
+hist(mmc$Score)
+hist(mmc$Margin)
+hist(mmc$Shape)
+hist(mmc$Density)
+hist(mmc$Age)
+```
+
+Histograms (and statistical calculations) of score and age show the largest score category, by far, is 4, with the next highest being 5, and fewer still in 3, 6 and 2. The age histogram, visually, is very close to normally distributed and centered around late 50s. Other histograms show "clumpy" data with no real distribution shapes of note.
+
+```{r scatterplots}
+ ggplot(data=mmc) +
+   geom_jitter (mapping = aes(x=Age, y=Score, color=Malignant))+
+  xlab("Age")+
+  ggtitle("Age vs Score and Malignancy")
+
+ ggplot(data=mmc) +
+   geom_jitter (mapping = aes(x=Age, y=Shape, color=Malignant))+
+  xlab("Age")+
+  ggtitle("Age vs Shape and Malignancy")
+ 
+  ggplot(data=mmc) +
+   geom_jitter (mapping = aes(x=Age, y=Density, color=Malignant))+
+  xlab("Age")+
+  ggtitle("Age vs Density and Malignancy")
+   
+  ggplot(data=mmc) +
+   geom_jitter (mapping = aes(x=Age, y=Margin, color=Malignant))+
+  xlab("Age")+
+  ggtitle("Age vs Margin and Malignancy")
+```
+
+The jittered scatter plots show relationships between age and mass characteristics shown as benign (black) or malignant (blue).Of most interest is the score vs age plot showing many more malignancies with a score of 5, while lower value scores are mixes with more malignant diagnoses with increasing age. The margin also shows a larger number of cases with a score of 1 but with more malignancy with age, while higher margin values also show higher proportions of malignancy regardless of age.
+
+
+```{r correlation matrix and heatmap}
+cormat <- cor(mmc)
+print(cormat)
+heatmap(cormat)
+```
+
+The correlation matrix and heat map suggest weak relationships between malignant and the other indicators. There does appear to be some correlation between the margin and shape variables, and also, therefore, possibly a link between these two indicators and malignancy. More analysis needs to be done to further explore any relationships.
+
+```{r frequency analysis}
+table(mmc$Age,mmc$Malignant)
+barchart(table(mmc$Age,mmc$Malignant),
+         title = "Stacked Bar Plot of Malignancy by Age",
+         xlab="Age",
+         horizontal = FALSE)
+```
+
+The stacked bar chart shows a strong trend of more malignancy with age. Younger women show very few malignant findings through about age 30. More findings are malignant through middle age, and above age 50, or so, the malignancy rate is usually much greater than benign.
+
+```{r convert integers to factors}
+mmc$Score <- as.factor(mmc$Score)
+mmc$Shape <- as.factor(mmc$Shape)
+mmc$Margin <- as.factor(mmc$Margin)
+mmc$Density <- as.factor(mmc$Density)
+mmc$Malignant <- as.factor(mmc$Malignant)
+#str(mmc)
+```
+
+## Prepare classification models
+
+```{r split data for modeling}
+# Split data into training set (70%) and testing set (30%)
+set.seed(428) 
+inTrain <- createDataPartition(y=mmc$Malignant,
+                               p=.70,
+                               list=FALSE)
+training <- mmc[inTrain,]
+testing <- mmc[-inTrain,]
+#show the number of rows in both training and testing sets
+message("There are ", nrow (training), " rows in the training data set")
+message("There are ", nrow (testing), " rows in the testing data set")
+#dim(training)
+#head(training)
+#dim(testing)
+#head(testing)
+```
+
+## Build and analyze models
+
+```{r build knn model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 10, 
+                           repeats   = 10)
+
+ #train knn classification model
+ knnFit <- train(Malignant~., data = training, 
+                 method = "knn",   
+                 trControl=fitControl)
+#knnFit
+#knnFit$finalModel
+
+#make predictions
+knnpred <- predict(knnFit, testing)
+
+#performance measurement
+postResample(knnpred, testing$Malignant)
+
+#confusion matrix
+cmknn <-confusionMatrix(knnpred, testing$Malignant)
+print(cmknn)
+```
+
+```{r build random forest model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 2, 
+                           repeats   = 5)
+
+#train Random Forest classification model
+rfFit <- train(Malignant~., data = training,
+               method = "rf",
+               trControl=fitControl)
+#rfFit
+#rfFit$finalModel
+
+#make predictions
+rfpred <- predict(rfFit, testing)
+ 
+#performance measurement
+postResample(rfpred, testing$Malignant)
+ 
+#confusion matrix
+cmrf <-confusionMatrix(rfpred, testing$Malignant)
+print(cmrf)
+```
+
+```{r build glm model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 10, 
+                           repeats   = 10)
+
+#train general linear model
+glmFit <- train(Malignant~., data = training, 
+                 method = "glm",   
+                 trControl=fitControl)
+#glmFit
+#glmFit$finalModel
+
+#make predictions
+glmpred <- predict(glmFit, testing)
+ 
+#performance measurement
+postResample(glmpred, testing$Malignant)
+ 
+#confusion matrix
+cmglm <-confusionMatrix(glmpred, testing$Malignant)
+print(cmglm)
+```
+
+```{r build svm model}
+svmFit <- train(Malignant ~ ., data = training,
+                 method = "svmPoly",
+                 trControl= fitControl,
+                 tuneGrid = data.frame(degree = 1,
+                                       scale = 1,
+                                       C = 1),
+                 preProcess = c("pca","scale","center"),
+                 na.action = na.omit)
+
+#svmFit
+#svmFit$finalModel
+
+#make predictions
+svmpred <- predict(svmFit, testing)
+ 
+#performance measurement
+postResample(svmpred, testing$Malignant)
+ 
+#confusion matrix
+cmsvm <-confusionMatrix(svmpred, testing$Malignant)
+print(cmsvm)
+```
+
+```{r build naive bayes model}
+nbFit <- train(Malignant ~ ., data = training,
+                 method = "nb",
+                 trControl= fitControl)
+
+#naivebayesFit
+#nbFit$finalModel
+
+#make predictions
+nbpred <- predict(nbFit, testing)
+ 
+#performance measurement
+postResample(nbpred, testing$Malignant)
+ 
+#confusion matrix
+nbcm <-confusionMatrix(nbpred, testing$Malignant)
+print(nbcm)
+```
+
+```{r build stochastic gradient boosting model}
+gbmFit <- train(Malignant ~ ., data = training,
+                 method = "gbm",
+                 trControl= fitControl,
+                 verbose=FALSE)
+
+#gbmFit
+#gbmFit$finalModel
+
+#make predictions
+gbmpred <- predict(gbmFit, testing)
+ 
+#performance measurement
+postResample(gbmpred, testing$Malignant)
+ 
+#confusion matrix
+gbmcm <-confusionMatrix(gbmpred, testing$Malignant)
+print(gbmcm)
+```
+
+## Modify dataset by Binning Ages
+
+Based on the earlier finding of younger women showing fewer malignancies and older women showing more, the age variable will be grouped in ~10 year increments and some of the models rerun to determine if accuracy can be improved. This will result in 7 age categories: less than 30, 30-39, 40-49, 50-59, 60-69, 70-79 and greater than 80 (A<30, A30-39, A40-49, A50-59, A60-69, A70-79, A>80).
+
+```{r import dataset with age groups}
+mmca <- read.csv("~/Desktop/data science/_PROJECTS/_breastcancer/mmca.csv")
+#summary(mmca)
+#str(mmca)
+#table(mmca$AgeGroup)
+head(mmca, n=10)
+```
+
+```{r convert 2nd dataset integers to factors}
+mmca$Score <- as.factor(mmca$Score)
+mmca$Shape <- as.factor(mmca$Shape)
+mmca$Margin <- as.factor(mmca$Margin)
+mmca$Density <- as.factor(mmca$Density)
+mmca$Malignant <- as.factor(mmca$Malignant)
+str(mmca)
+```
+
+## Prepare classification models
+
+```{r split 2nd dataset for modeling}
+# Split data into training set (70%) and testing set (30%)
+set.seed(428) 
+inTrain <- createDataPartition(y=mmca$Malignant,
+                               p=.70,
+                               list=FALSE)
+training <- mmca[inTrain,]
+testing <- mmca[-inTrain,]
+#show the number of rows in both training and testing sets
+message("There are ", nrow (training), " rows in the training data set")
+message("There are ", nrow (testing), " rows in the testing data set")
+#dim(training)
+#head(training)
+#dim(testing)
+#head(testing)
+```
+
+## Build and analyze models
+
+```{r build 2nd dataset knn model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 10, 
+                           repeats   = 10)
+
+#train knn classification model
+knnFit <- train(Malignant~., data = training, 
+                 method = "knn",   
+                 trControl=fitControl)
+#knnFit
+#knnFit$finalModel
+
+#make predictions
+knnpred <- predict(knnFit, testing)
+
+#performance measurement
+postResample(knnpred, testing$Malignant)
+
+#confusion matrix
+cmknn <-confusionMatrix(knnpred, testing$Malignant)
+print(cmknn)
+```
+
+```{r build 2nd dataset random forest model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 2, 
+                           repeats   = 5)
+
+#train Random Forest classification model
+rfFit <- train(Malignant~., data = training,
+               method = "rf",
+               trControl=fitControl)
+#rfFit
+#rfFit$finalModel
+
+#make predictions
+rfpred <- predict(rfFit, testing)
+ 
+#performance measurement
+postResample(rfpred, testing$Malignant)
+ 
+#confusion matrix
+cmrf <-confusionMatrix(rfpred, testing$Malignant)
+print(cmrf)
+```
+
+```{r build 2nd dataset glm model}
+fitControl <- trainControl(method = "repeatedcv", 
+                           number = 10, 
+                           repeats   = 10)
+
+#train general linear model
+glmFit <- train(Malignant~., data = training, 
+                 method = "glm",   
+                 trControl=fitControl)
+#glmFit
+#glmFit$finalModel
+
+#make predictions
+glmpred <- predict(glmFit, testing)
+ 
+#performance measurement
+postResample(glmpred, testing$Malignant)
+ 
+#confusion matrix
+cmglm <-confusionMatrix(glmpred, testing$Malignant)
+print(cmglm)
+```
+
+```{r build 2nd dataset svm model}
+svmFit <- train(Malignant ~ ., data = training,
+                 method = "svmPoly",
+                 trControl= fitControl,
+                 tuneGrid = data.frame(degree = 1,
+                                       scale = 1,
+                                       C = 1),
+                 preProcess = c("pca","scale","center"),
+                 na.action = na.omit)
+
+#svmFit
+#svmFit$finalModel
+
+#make predictions
+svmpred <- predict(svmFit, testing)
+ 
+#performance measurement
+postResample(svmpred, testing$Malignant)
+ 
+#confusion matrix
+cmsvm <-confusionMatrix(svmpred, testing$Malignant)
+print(cmsvm)
+```
+
+```{r build 2nd dataset naive bayes model}
+nbFit <- train(Malignant ~ ., data = training,
+                 method = "nb",
+                 trControl= fitControl)
+
+#naivebayesFit
+#nbFit$finalModel
+
+#make predictions
+nbpred <- predict(nbFit, testing)
+ 
+#performance measurement
+postResample(nbpred, testing$Malignant)
+ 
+#confusion matrix
+nbcm <-confusionMatrix(nbpred, testing$Malignant)
+print(nbcm)
+```
+
+```{r build 2nd dataset stochastic gradient boosting model}
+gbmFit <- train(Malignant ~ ., data = training,
+                 method = "gbm",
+                 trControl= fitControl,
+                 verbose=FALSE)
+
+#gbmFit
+#gbmFit$finalModel
+
+#make predictions
+gbmpred <- predict(gbmFit, testing)
+ 
+#performance measurement
+postResample(gbmpred, testing$Malignant)
+ 
+#confusion matrix
+gbmcm <-confusionMatrix(gbmpred, testing$Malignant)
+print(gbmcm)
+```
+
+Binning the ages improves model performance very slightly, but not to a great degree. Naive Bayes, in both cases, show the best prediction power, however, random forest and support vector machine also show reasonably accurate predictions in both datasets.
