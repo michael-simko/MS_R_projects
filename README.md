@@ -12,3 +12,5 @@ The wifi files are also apply feature engineering and modeling to develop a wifi
 Submeters is an R-Markdown file with code analyzing a large dataset of household electrical observations. After feature engineering and data munging, the code creates visualizations of sub-meter values day to day over the period of one year.
 
 breastcancerclassification is a project that classifies a diagnosis of benign or malignant based on a number of mass characteristics.
+
+I was turned on to calculating Collatz Conjecture string lengths using Python, and wanted to try the same exercise using R. In my experiene, with this code structure, python is significantly faster. However, I think there may be ways to improve the code to improve speed. However, I've added my first successful attempt to calculate Collatz string lengths with R.
