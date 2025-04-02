@@ -27,7 +27,7 @@ cfunc <- function(z) {
 # set vector with range desired for calculation
 # 1 to 1 million, for example
 # and place in dataframe
-nums <- c(1:100)
+nums <- c(1:1000000)
 df <- data.frame(unlist(nums))
 colnames(df)[1] <-"nums"
 
